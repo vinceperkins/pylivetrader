@@ -23,7 +23,7 @@ from itertools import chain
 from contextlib import ExitStack
 from copy import copy
 import importlib
-from trading_calendars import get_calendar
+from exchange_calendars import get_calendar
 
 import pylivetrader.protocol as proto
 from pylivetrader.assets import AssetFinder, Asset
@@ -530,7 +530,10 @@ class Algorithm(object):
     @expect_types(tz=optional(tzinfo))
     def get_datetime(self, tz=None):
         dt = self.datetime
-        assert dt.tzinfo == pytz.utc, "Algorithm should have a utc datetime"
+        # pandas may represent a UTC tzinfo as either `pytz.utc` or the
+        # standard-library `datetime.timezone.utc` depending on how the
+        # Timestamp was constructed, so compare by name rather than identity.
+        assert str(dt.tzinfo) == 'UTC', "Algorithm should have a utc datetime"
         if tz is not None:
             dt = dt.astimezone(tz)
         return dt

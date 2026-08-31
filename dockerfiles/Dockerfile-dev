@@ -1,4 +1,4 @@
-FROM python:3.6-stretch
+FROM python:3.11
 
 # Install talib
 RUN wget http://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz && \

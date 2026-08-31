@@ -17,32 +17,12 @@
 Utilities for validating inputs to user-facing API functions.
 """
 from textwrap import dedent
-from types import CodeType
 from functools import wraps
-from inspect import getargspec
+from inspect import getfullargspec
 from uuid import uuid4
 
-from toolz.curried.operator import getitem
-from six import viewkeys, exec_, PY3
+from six import viewkeys, exec_
 
-
-_code_argorder = (
-    ('co_argcount', 'co_kwonlyargcount') if PY3 else ('co_argcount',)
-) + (
-    'co_nlocals',
-    'co_stacksize',
-    'co_flags',
-    'co_code',
-    'co_consts',
-    'co_names',
-    'co_varnames',
-    'co_filename',
-    'co_name',
-    'co_firstlineno',
-    'co_lnotab',
-    'co_freevars',
-    'co_cellvars',
-)
 
 NO_DEFAULT = object()
 
@@ -95,7 +75,8 @@ def preprocess(*_unused, **processors):
         raise TypeError("preprocess() doesn't accept positional arguments")
 
     def _decorator(f):
-        args, varargs, varkw, defaults = argspec = getargspec(f)
+        argspec = getfullargspec(f)
+        args, varargs, varkw, defaults = argspec[:4]
         if defaults is None:
             defaults = ()
         no_defaults = (NO_DEFAULT,) * (len(args) - len(defaults))
@@ -234,12 +215,6 @@ def _build_preprocessed_function(func,
     exec_(compiled, exec_globals, exec_locals)
     new_func = exec_locals[func.__name__]
 
-    code = new_func.__code__
-    args = {
-        attr: getattr(code, attr)
-        for attr in dir(code)
-        if attr.startswith('co_')
-    }
     # Copy the firstlineno out of the underlying function so that exceptions
     # get raised with the correct traceback.
     # This also makes dynamic source inspection (like IPython `??` operator)
@@ -257,6 +232,7 @@ def _build_preprocessed_function(func,
             # nothing for us to correct.
             return new_func
 
-    args['co_firstlineno'] = original_code.co_firstlineno
-    new_func.__code__ = CodeType(*map(getitem(args), _code_argorder))
+    new_func.__code__ = new_func.__code__.replace(
+        co_firstlineno=original_code.co_firstlineno,
+    )
     return new_func

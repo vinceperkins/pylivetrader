@@ -11,7 +11,7 @@ from pylivetrader.backend.base import BaseBackend
 import pandas as pd
 import numpy as np
 import string
-from trading_calendars import get_calendar
+from exchange_calendars import get_calendar
 
 from logbook import Logger
 
@@ -268,10 +268,10 @@ class FakeDataBackend:
         fake_end = self._clock.end_time
         for asset in missing:
             if data_frequency == '1m':
-                mask = self._cal.all_minutes
+                mask = self._cal.minutes
                 end = fake_end
             else:
-                mask = self._cal.all_sessions
+                mask = self._cal.sessions
                 end = fake_end.floor('1D')
         mask = mask[mask <= end]
         if len(mask) >= MAX_FAKE_BARS:

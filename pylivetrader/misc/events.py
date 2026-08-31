@@ -332,6 +332,20 @@ class Never(StatelessRule):
     should_trigger = never_trigger
 
 
+def _execution_time_from_open(cal, open_dt):
+    # Only calendars with an execution/trading-hours distinction (e.g. the
+    # US futures calendar) define this; regular equity calendars trade
+    # exactly during their session open/close, so fall back to the raw
+    # open time.
+    method = getattr(cal, 'execution_time_from_open', None)
+    return method(open_dt) if method is not None else open_dt
+
+
+def _execution_time_from_close(cal, close_dt):
+    method = getattr(cal, 'execution_time_from_close', None)
+    return method(close_dt) if method is not None else close_dt
+
+
 class AfterOpen(StatelessRule):
     """
     A rule that triggers for some offset after the market opens.
@@ -358,15 +372,15 @@ class AfterOpen(StatelessRule):
         """
         Given a date, find that day's open and period end (open + offset).
         """
-        period_start, period_close = self.cal.open_and_close_for_session(
-            self.cal.minute_to_session_label(dt),
-        )
+        session = self.cal.minute_to_session(dt)
+        period_start = self.cal.session_open(session)
+        period_close = self.cal.session_close(session)
 
         # Align the market open and close times here with the execution times
         # used by the simulation clock. This ensures that scheduled functions
         # trigger at the correct times.
-        self._period_start = self.cal.execution_time_from_open(period_start)
-        self._period_close = self.cal.execution_time_from_close(period_close)
+        self._period_start = _execution_time_from_open(self.cal, period_start)
+        self._period_close = _execution_time_from_close(self.cal, period_close)
 
         self._period_end = self._period_start + self.offset - self._one_minute
 
@@ -415,14 +429,12 @@ class BeforeClose(StatelessRule):
         """
         Given a dt, find that day's close and period start (close - offset).
         """
-        period_end = self.cal.open_and_close_for_session(
-            self.cal.minute_to_session_label(dt),
-        )[1]
+        period_end = self.cal.session_close(self.cal.minute_to_session(dt))
 
         # Align the market close time here with the execution time used by the
         # simulation clock. This ensures that scheduled functions trigger at
         # the correct times.
-        self._period_end = self.cal.execution_time_from_close(period_end)
+        self._period_end = _execution_time_from_close(self.cal, period_end)
 
         self._period_start = self._period_end - self.offset
         self._period_close = self._period_end
@@ -449,7 +461,7 @@ class NotHalfDay(StatelessRule):
     """
 
     def should_trigger(self, dt):
-        return self.cal.minute_to_session_label(dt) \
+        return self.cal.minute_to_session(dt) \
             not in self.cal.early_closes
 
 
@@ -463,16 +475,16 @@ class TradingDayOfWeekRule(six.with_metaclass(ABCMeta, StatelessRule)):
 
     def should_trigger(self, dt):
         # is this market minute's period in the list of execution periods?
-        val = self.cal.minute_to_session_label(dt, direction="none").value
+        val = self.cal.minute_to_session(dt, direction="none").value
         return val in self.execution_period_values
 
     @lazyval
     def execution_period_values(self):
         # calculate the list of periods that match the given criteria
-        sessions = self.cal.all_sessions
+        sessions = self.cal.sessions
         return set(
             pd.Series(data=sessions)
-            .groupby([sessions.year, sessions.weekofyear])
+            .groupby([sessions.year, sessions.isocalendar().week])
             .nth(self.td_delta)
             .astype(np.int64)
         )
@@ -510,13 +522,13 @@ class TradingDayOfMonthRule(six.with_metaclass(ABCMeta, StatelessRule)):
 
     def should_trigger(self, dt):
         # is this market minute's period in the list of execution periods?
-        value = self.cal.minute_to_session_label(dt, direction="none").value
+        value = self.cal.minute_to_session(dt, direction="none").value
         return value in self.execution_period_values
 
     @lazyval
     def execution_period_values(self):
         # calculate the list of periods that match the given criteria
-        sessions = self.cal.all_sessions
+        sessions = self.cal.sessions
         return set(
             pd.Series(data=sessions)
             .groupby([sessions.year, sessions.month])

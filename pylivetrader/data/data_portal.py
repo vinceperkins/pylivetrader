@@ -120,7 +120,6 @@ class DataPortal:
             # To provide values for such cases we backward fill.
             # Backward fill as a second operation will have no effect if the
             # forward-fill was successful.
-            bars.fillna(method='ffill', inplace=True)
-            bars.fillna(method='bfill', inplace=True)
+            bars = bars.ffill().bfill()
 
         return bars[-bar_count:]

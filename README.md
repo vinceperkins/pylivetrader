@@ -89,15 +89,18 @@ Assuming you have redis running, this will now serialize your context object to 
 
 ## Installation
 
-Install with pip. **pylivetrader currently supports only Python 3.6.
+Install with pip. **pylivetrader requires Python 3.9 or later (tested on Python 3.11).**
 
 ```
-$ python3.6 -m venv venv
+$ python3.11 -m venv venv
 $ source venv/bin/activate
 (venv)$ pip install pylivetrader
 ```
 
-Additionally, pylivetrader works well with [pipeline-live](https://github.com/alpacahq/pipeline-live).
+Additionally, pylivetrader works well with [pipeline-live](https://github.com/alpacahq/pipeline-live),
+which you can install with the `pipeline` extra: `pip install pylivetrader[pipeline]`. Note that
+pipeline-live is unmaintained and hard-pins ancient dependencies (including zipline 1.3.0), which do
+not build on modern Python, so it may not be installable in current environments.
 
 ## Command Reference
 

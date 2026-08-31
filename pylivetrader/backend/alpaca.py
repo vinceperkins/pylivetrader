@@ -20,11 +20,11 @@ from alpaca_trade_api.entity import Order
 from requests.exceptions import HTTPError
 import numpy as np
 import pandas as pd
-from trading_calendars import (
+from exchange_calendars import (
     get_calendar,
     register_calendar_alias,
 )
-from trading_calendars.calendar_utils import (
+from exchange_calendars.calendar_utils import (
     global_calendar_dispatcher as default_calendar,
 )
 from datetime import timedelta
@@ -86,7 +86,7 @@ def skip_http_error(statuses):
             except HTTPError as e:
                 status_code = e.response.status_code
                 if status_code in statuses:
-                    log.warn(str(e))
+                    log.warning(str(e))
                 else:
                     raise
         return wrapper
@@ -408,7 +408,7 @@ class Backend(BaseBackend):
         # A session label refers to the market date that an order submitted
         # at a given minute would be executed on. We'll need to keep track of
         # this if the function is bounded by days_back.
-        start_session_label = self._cal.minute_to_session_label(now)
+        start_session_label = self._cal.minute_to_session(now)
         reached_end_date = False
 
         all_orders = {}
@@ -420,9 +420,9 @@ class Backend(BaseBackend):
             for order in orders:
                 if days_back is not None:
                     # Verify that the order is not too old.
-                    # `session_distance()` ignores holidays and weekends.
-                    days_since_order = self._cal.session_distance(
-                        self._cal.minute_to_session_label(order.submitted_at),
+                    # `sessions_distance()` ignores holidays and weekends.
+                    days_since_order = self._cal.sessions_distance(
+                        self._cal.minute_to_session(order.submitted_at),
                         start_session_label
                     )
                     if days_since_order > days_back:
@@ -611,11 +611,11 @@ class Backend(BaseBackend):
         """
         if not end_dt:
             end_dt = pd.to_datetime('now', utc=True).floor('min')
-        session_label = self._cal.minute_to_session_label(end_dt)
-        all_minutes: pd.DatetimeIndex = self._cal.all_minutes
-        all_sessions: pd.DatetimeIndex = self._cal.all_sessions
+        session_label = self._cal.minute_to_session(end_dt)
+        all_minutes: pd.DatetimeIndex = self._cal.minutes
+        all_sessions: pd.DatetimeIndex = self._cal.sessions
         if size == 'minute':
-            if end_dt not in self._cal.minutes_for_session(session_label):
+            if end_dt not in self._cal.session_minutes(session_label):
                 end_dt = self._cal.previous_minute(end_dt)
                 # Alpaca's last minute is 15:59 not 16:00 (NY tz)
                 end_dt = end_dt - timedelta(minutes=1)
