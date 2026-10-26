@@ -661,8 +661,12 @@ class Backend(BaseBackend):
                                             end=to.isoformat(),
                                             adjustment='raw').df
             df = pd.concat(r, axis=1)
-            # data is received in UTC tz but without tz (naive)
-            df.index = df.index.tz_localize("UTC")
+            # older alpaca-trade-api releases returned UTC data without tz
+            # (naive); newer ones return it already tz-aware.
+            if df.index.tz is None:
+                df.index = df.index.tz_localize("UTC")
+            else:
+                df.index = df.index.tz_convert("UTC")
 
             if size == 'minute':
                 df.index += pd.Timedelta('1min')
