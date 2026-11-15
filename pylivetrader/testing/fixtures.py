@@ -6,7 +6,7 @@ from pylivetrader.assets import AssetFinder
 from pylivetrader.assets import Equity
 from pylivetrader.misc.pd_utils import normalize_date
 from pylivetrader.finance.order import Order as ZPOrder
-from trading_calendars import get_calendar
+from exchange_calendars import get_calendar
 
 
 def get_fixture_data_portal(**kwargs):
@@ -53,7 +53,7 @@ class Backend:
 
         self.assets = assets or ['asset-0', 'asset-1', 'asset-2']
 
-        minutes = self._calendar.minutes_for_sessions_in_range(
+        minutes = self._calendar.sessions_minutes(
             self.start, self.end)
         self._minutely_bars = {}
         for i, asset in enumerate(self.get_equities()):

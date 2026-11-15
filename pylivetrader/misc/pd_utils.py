@@ -14,7 +14,6 @@
 # limitations under the License.
 
 
-try:
-    from pandas._libs.tslib import normalize_date  # noqa
-except ImportError:
-    from pandas.tslib import normalize_date  # noqa
+def normalize_date(dt):
+    """Floor a Timestamp to midnight, preserving its timezone."""
+    return dt.normalize()

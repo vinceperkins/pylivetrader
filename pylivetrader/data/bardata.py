@@ -17,7 +17,7 @@ import pandas
 import pandas as pd
 
 from contextlib import contextmanager
-from collections import Iterable
+from collections.abc import Iterable
 
 from pylivetrader.misc.pd_utils import normalize_date
 from pylivetrader.assets import Asset
@@ -182,7 +182,11 @@ class BarData:
                     ) for field in fields
                 }
 
-                return pd.Panel(df_dict)
+                # pd.Panel was removed from pandas; a MultiIndex-columned
+                # DataFrame keyed (field, asset) is the closest replacement,
+                # sliceable the same way a Panel item lookup (panel[field])
+                # used to be via df[field].
+                return pd.concat(df_dict, axis=1)
 
     def can_trade(self, assets):
         """
@@ -251,7 +255,7 @@ class BarData:
         # this sometimes fail even though the asset is trade-able. I cancelled
         # this check, and added the one above it
 
-        # session_label = self.calendar.minute_to_session_label(dt)
+        # session_label = self.calendar.minute_to_session(dt)
         # if not asset.is_alive_for_session(session_label):
         #     # asset isn't alive
         #     return False
@@ -380,6 +384,6 @@ class BarData:
         if self._daily_mode:
             # if we're in daily mode, take the given dt (which is the last
             # minute of the session) and get the session label for it.
-            dt = self.data_portal.trading_calendar.minute_to_session_label(dt)
+            dt = self.data_portal.trading_calendar.minute_to_session(dt)
 
         return dt

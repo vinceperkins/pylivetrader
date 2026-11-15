@@ -36,11 +36,13 @@ setup(
         'License :: OSI Approved :: Apache Software License',
         'Natural Language :: English',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
         'Operating System :: OS Independent',
         'Topic :: Office/Business :: Financial',
     ],
+    python_requires='>=3.9',
     packages=find_packages(),
     include_package_data=True,
     entry_points='''
@@ -49,5 +51,13 @@ setup(
     ''',
     install_requires=REQUIREMENTS,
     tests_require=REQUIREMENTS_TEST,
+    extras_require={
+        # pipeline-live is unmaintained and hard-pins ancient dependencies
+        # (zipline==1.3.0, pandas==0.22.0, numpy==1.19.4) that no longer
+        # build on modern Python, so it's optional rather than a hard
+        # requirement. pipeline_output() already raises a clear
+        # RuntimeError at runtime if it isn't installed.
+        'pipeline': ['pipeline-live>=0.2.0'],
+    },
     setup_requires=["flake8", "pytest-runner"]
 )

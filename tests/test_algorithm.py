@@ -326,7 +326,11 @@ def test_pipeline():
     pkg = 'pipeline_live.engine'
     if pkg in sys.modules:
         del sys.modules[pkg]
-    with pytest.raises(TypeError):
+
+    # pipeline-live is an optional dependency; when it isn't installed,
+    # pipeline_output() should surface a clear RuntimeError rather than
+    # a bare ImportError.
+    with pytest.raises(RuntimeError):
         algo.pipeline_output('mock')
 
     mod = Mock()

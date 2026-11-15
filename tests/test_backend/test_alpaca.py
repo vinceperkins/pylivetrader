@@ -224,3 +224,61 @@ def test_orders():
             _api.submit_order.side_effect = APIError({'message': 'test'})
             res = backend.order(aapl, -1, MarketOrder())
             assert res is None
+
+
+@pytest.mark.parametrize('tz', [None, 'UTC'])
+def test_fetch_bars_handles_naive_and_aware_index(tz):
+    import pandas as pd
+
+    backend = alpaca.Backend('key-id', 'secret-key')
+    idx = pd.date_range('2018-08-13 13:30', periods=2, freq='min', tz=tz)
+    bars = pd.DataFrame({'open': [1.0, 2.0], 'close': [1.5, 2.5]}, index=idx)
+
+    with patch.object(backend, '_api') as _api:
+        _api.get_bars.return_value.df = bars
+        df = backend._fetch_bars_from_api_internal({
+            'symbols': ['AAPL'],
+            '_from': pd.Timestamp('2018-08-13 09:30', tz='America/New_York'),
+            'to': pd.Timestamp('2018-08-13 09:32', tz='America/New_York'),
+            'size': 'day',
+            'limit': 2,
+        })
+
+    assert str(df.index.tz) == 'UTC'
+    assert list(df.index) == list(pd.DatetimeIndex(idx).tz_localize(None)
+                                  .tz_localize('UTC')) if tz is None \
+        else list(idx)
+
+
+def test_fetch_bars_handles_symbol_without_data():
+    import pandas as pd
+
+    backend = alpaca.Backend('key-id', 'secret-key')
+    idx = pd.date_range('2018-08-13 13:30', periods=2, freq='min', tz='UTC')
+    full = pd.DataFrame({'open': [1.0, 2.0], 'high': [1.0, 2.0],
+                         'low': [1.0, 2.0], 'close': [1.5, 2.5],
+                         'volume': [10, 20]}, index=idx)
+    # what alpaca-trade-api returns when there are no bars
+    empty = pd.DataFrame()
+
+    def get_bars(sym, **kwargs):
+        return Mock(df=empty if sym == 'NOBARS' else full)
+
+    params = {
+        'symbols': ['AAPL', 'NOBARS'],
+        '_from': pd.Timestamp('2018-08-13 09:30', tz='America/New_York'),
+        'to': pd.Timestamp('2018-08-13 09:32', tz='America/New_York'),
+        'size': 'day',
+        'limit': 2,
+    }
+    with patch.object(backend, '_api') as _api:
+        _api.get_bars.side_effect = get_bars
+        df = backend._fetch_bars_from_api_internal(params)
+        assert df['AAPL']['close'].notna().all()
+        assert df['NOBARS']['close'].isna().all()
+
+        # no symbol has data at all
+        _api.get_bars.side_effect = lambda sym, **kw: Mock(df=empty)
+        df = backend._fetch_bars_from_api_internal(params)
+        assert df.empty
+        assert str(df.index.tz) == 'UTC'
