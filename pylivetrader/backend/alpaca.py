@@ -62,6 +62,7 @@ log = Logger('Alpaca')
 NY = 'America/New_York'
 # alpaca support get real-time data of multi stocks(<200) at once. we use this:
 ALPACA_MAX_SYMBOLS_PER_REQUEST = 199
+OHLCV_FIELDS = ['open', 'high', 'low', 'close', 'volume']
 
 end_offset = pd.Timedelta('1000 days')
 one_day_offset = pd.Timedelta('1 day')
@@ -654,12 +655,23 @@ class Backend(BaseBackend):
             # the limit for each to replicate that behaviour
             r = {}
             for sym in symbols:
-                r[sym] = self._api.get_bars(sym,
-                                            limit=params['limit'],
-                                            timeframe=timeframe,
-                                            start=_from.isoformat(),
-                                            end=to.isoformat(),
-                                            adjustment='raw').df
+                bars = self._api.get_bars(sym,
+                                          limit=params['limit'],
+                                          timeframe=timeframe,
+                                          start=_from.isoformat(),
+                                          end=to.isoformat(),
+                                          adjustment='raw').df
+                if bars.empty:
+                    # no bars in the window (illiquid symbol, extended
+                    # hours, ...): the API client hands back a bare
+                    # DataFrame with a RangeIndex, which can't be
+                    # localized or concatenated with the other symbols.
+                    bars = pd.DataFrame(
+                        columns=OHLCV_FIELDS,
+                        index=pd.DatetimeIndex([], tz='UTC'),
+                        dtype=float,
+                    )
+                r[sym] = bars
             df = pd.concat(r, axis=1)
             # older alpaca-trade-api releases returned UTC data without tz
             # (naive); newer ones return it already tz-aware.
