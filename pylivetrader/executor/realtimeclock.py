@@ -66,7 +66,11 @@ class RealtimeClock(object):
             server_time = (current_time + self.time_skew).floor('1 min')
 
             session_label = server_time.floor('1D')
-            if not self.calendar.is_session(session_label):
+            # exchange_calendars wants session labels as tz-naive dates,
+            # while the rest of pylivetrader works with tz-aware UTC
+            # midnights, so keep both.
+            calendar_session = session_label.tz_localize(None)
+            if not self.calendar.is_session(calendar_session):
                 # wait until next session
                 sleep(1)
                 continue
@@ -87,8 +91,8 @@ class RealtimeClock(object):
                 .tz_localize(self.before_trading_start_minute[1])
             ) + delta
 
-            session_open = self.calendar.session_open(current_session)
-            session_close = self.calendar.session_close(current_session)
+            session_open = self.calendar.session_open(calendar_session)
+            session_close = self.calendar.session_close(calendar_session)
 
             if (server_time >= before_trading_start and
                     not self._before_trading_start_bar_yielded):

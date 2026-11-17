@@ -482,9 +482,14 @@ class TradingDayOfWeekRule(six.with_metaclass(ABCMeta, StatelessRule)):
     def execution_period_values(self):
         # calculate the list of periods that match the given criteria
         sessions = self.cal.sessions
+        # Group by plain arrays: an isocalendar() Series is indexed by date
+        # and would not align with the RangeIndex of pd.Series(sessions),
+        # leaving every group empty. The ISO year keeps days such as
+        # Dec 31 in the same ISO week as the following Jan 1-3.
+        iso = sessions.isocalendar()
         return set(
             pd.Series(data=sessions)
-            .groupby([sessions.year, sessions.isocalendar().week])
+            .groupby([iso.year.to_numpy(), iso.week.to_numpy()])
             .nth(self.td_delta)
             .astype(np.int64)
         )

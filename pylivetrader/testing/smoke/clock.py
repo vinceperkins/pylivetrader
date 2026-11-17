@@ -89,10 +89,17 @@ class FaketimeClock(object):
         current_session = None
 
         while True:
-            server_time = self._next()
+            try:
+                server_time = self._next()
+            except StopIteration:
+                # PEP 479: a StopIteration escaping a generator becomes a
+                # RuntimeError, so end the iteration explicitly.
+                return
 
             session_label = server_time.floor('1D')
-            if not self.calendar.is_session(session_label):
+            # exchange_calendars wants tz-naive session dates
+            calendar_session = session_label.tz_localize(None)
+            if not self.calendar.is_session(calendar_session):
                 # wait until next session
                 # sleep(1)
                 continue
@@ -113,8 +120,8 @@ class FaketimeClock(object):
                 .tz_localize(self.before_trading_start_minute[1])
             ) + delta
 
-            session_open = self.calendar.session_open(current_session)
-            session_close = self.calendar.session_close(current_session)
+            session_open = self.calendar.session_open(calendar_session)
+            session_close = self.calendar.session_close(calendar_session)
 
             if (server_time >= before_trading_start and
                     not self._before_trading_start_bar_yielded):
